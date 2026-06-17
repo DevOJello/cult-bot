@@ -1,5 +1,5 @@
 const { SlashCommandBuilder, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
-const pool = require('./database');
+const pool = require('../database');
 
 // ── DB Init ──────────────────────────────────────────────────────────────────
 async function initDB() {
