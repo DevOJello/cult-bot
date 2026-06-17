@@ -1,5 +1,5 @@
 const { SlashCommandBuilder, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
-const pool = require('../database');
+const pool = require('./database');
 
 // ── DB Init ──────────────────────────────────────────────────────────────────
 async function initDB() {
@@ -93,9 +93,12 @@ async function syncMembers(guild, cult) {
   const role = guild.roles.cache.get(cult.role_id);
   if (!role) return;
 
-  await guild.members.fetch();
+  // Fetch only members with this specific role
+  try {
+    await guild.members.fetch({ force: false });
+  } catch {}
+  
   const members = role.members;
-
   for (const [memberId] of members) {
     await pool.query(`
       INSERT INTO cult_members (user_id, guild_id, cult_id)
@@ -217,7 +220,6 @@ module.exports = {
   async execute(interaction, client) {
     const sub = interaction.options.getSubcommand();
     const guild = interaction.guild;
-    await guild.members.fetch();
 
     // ── REGISTER ──────────────────────────────────────────────────────────────
     if (sub === 'register') {
@@ -455,8 +457,6 @@ module.exports = {
       `, [guild.id, attackerCult.id]);
       if (activeWar.length > 0) return interaction.reply({ content: '⚠️ Your cult is already in a war!', flags: 64 });
 
-      await syncMembers(guild, attackerCult);
-      await syncMembers(guild, defenderCult);
 
       const attackerCount = await getMemberCount(attackerCult.id);
       const defenderCount = await getMemberCount(defenderCult.id);
