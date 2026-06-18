@@ -448,11 +448,19 @@ module.exports = {
 
       await syncMembers(guild, cult);
 
-      const { rows: members } = await pool.query(
-        `SELECT * FROM cult_members WHERE cult_id = $1 ORDER BY
-          CASE rank WHEN 'leader' THEN 1 WHEN 'coleader' THEN 2 WHEN 'general' THEN 3 WHEN 'soldier' THEN 4 ELSE 5 END`,
+      const { rows: rawMembers } = await pool.query(
+        `SELECT * FROM cult_members WHERE cult_id = $1`,
         [cult.id]
       );
+
+      // The Leader's real rank lives in cults.leader_id, not cult_members.rank —
+      // syncMembers inserts them with the default 'recruit' row since they also
+      // hold the cult's Discord role. Override the displayed rank here so the
+      // list reflects reality without touching the stored data.
+      const RANK_ORDER = { leader: 1, coleader: 2, general: 3, soldier: 4, recruit: 5 };
+      const members = rawMembers
+        .map(m => ({ ...m, rank: m.user_id === cult.leader_id ? 'leader' : m.rank }))
+        .sort((a, b) => (RANK_ORDER[a.rank] || 99) - (RANK_ORDER[b.rank] || 99));
 
       const lines = members.map(m =>
         `${getRankEmoji(m.rank)} <@${m.user_id}> — **${m.rank}** ${m.is_alive ? '' : '💀'}`
