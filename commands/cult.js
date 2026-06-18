@@ -11,7 +11,7 @@ async function initDB() {
       name TEXT NOT NULL,
       leader_id TEXT NOT NULL,
       gold INTEGER DEFAULT 0,
-      max_members INTEGER DEFAULT 20,
+      max_members INTEGER DEFAULT 150,
       weapon_level INTEGER DEFAULT 1,
       bed_level INTEGER DEFAULT 1,
       description TEXT DEFAULT '',
@@ -23,6 +23,9 @@ async function initDB() {
   // Backfill columns for cults rows that already existed before this update
   await pool.query(`ALTER TABLE cults ADD COLUMN IF NOT EXISTS description TEXT DEFAULT ''`);
   await pool.query(`ALTER TABLE cults ADD COLUMN IF NOT EXISTS tax_rate INTEGER DEFAULT 100`);
+  // One-time backfill: bump already-registered cults up to the new 150-spot
+  // baseline, but never shrink a cult that's already expanded past it
+  await pool.query(`UPDATE cults SET max_members = 150 WHERE max_members < 150`);
 
   await pool.query(`
     CREATE TABLE IF NOT EXISTS cult_members (
@@ -383,7 +386,7 @@ module.exports = {
           .setColor(role.color || 0x6C63FF)
           .setDescription(`**${name}** has been registered!\nRole: <@&${role.id}>\nLeader: <@${interaction.user.id}>`)
           .addFields(
-            { name: '👥 Max Members', value: '20', inline: true },
+            { name: '👥 Max Members', value: `${cult.max_members}`, inline: true },
             { name: '💰 Gold', value: '0', inline: true },
             { name: '⚔️ Weapon Level', value: '1', inline: true },
             { name: '💸 Daily Tax', value: `${cult.tax_rate} gold/member`, inline: true },
@@ -569,7 +572,7 @@ module.exports = {
       let updateField, newValue, description;
 
       if (type === 'expand') {
-        newValue = cult.max_members + 10;
+        newValue = cult.max_members + 50;
         updateField = 'max_members';
         description = `Max members increased to **${newValue}**!`;
       } else if (type === 'weapons') {
