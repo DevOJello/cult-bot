@@ -94,8 +94,8 @@ module.exports = {
     ),
 
   async execute(interaction, client) {
-    if (!interaction.member.permissions.has('Administrator')) {
-      return interaction.reply({ content: '⚠️ Only admins can start a cult battle.', flags: 64 });
+    if (!interaction.member.permissions.has('ModerateMembers')) {
+      return interaction.reply({ content: '⚠️ Only moderators can start a cult battle.', flags: 64 });
     }
 
     const guild = interaction.guild;
@@ -137,9 +137,9 @@ module.exports = {
         .setColor(0x6C63FF)
         .setDescription(
           `**${cult1.name}** <@&${cult1Role.id}> ⚔️ **${cult2.name}** <@&${cult2Role.id}>\n\n` +
-          `🎯 Attack on **${REGION_LABEL[direction]}** region of **${cult2.name}**\n` +
-          `🏆 Reward: <@&${rewardRole.id}> for each member of the winning cult\n\n` +
-          `Choose the attack stance (30s, otherwise Balanced):`
+          `🎯 Attacking **${REGION_LABEL[direction]}** region of **${cult2.name}**\n` +
+          `🏆 Reward: <@&${rewardRole.id}> for every member of the winning cult\n\n` +
+          `Choose your attack stance (30s, defaults to Balanced):`
         )],
       components: [stanceRow]
     });
@@ -154,12 +154,12 @@ module.exports = {
       });
       stance1 = click.customId.split('_')[1];
       await click.update({
-        embeds: [new EmbedBuilder().setColor(0x6C63FF).setDescription(`**${cult1.name}** chooses **${STANCE_LABEL[stance1]}** and marches on!`)],
+        embeds: [new EmbedBuilder().setColor(0x6C63FF).setDescription(`**${cult1.name}** picks **${STANCE_LABEL[stance1]}** and marches in!`)],
         components: []
       });
     } catch {
       await interaction.editReply({
-        embeds: [new EmbedBuilder().setColor(0x6C63FF).setDescription(`No stance chosen — **${cult1.name}** goes with **${STANCE_LABEL.balanced}**.`)],
+        embeds: [new EmbedBuilder().setColor(0x6C63FF).setDescription(`No stance chosen — **${cult1.name}** marches in with **${STANCE_LABEL.balanced}**.`)],
         components: []
       });
     }
@@ -244,15 +244,15 @@ module.exports = {
         .setColor(0xffd700)
         .setDescription(
           `<@&${cult1Role.id}> **vs** <@&${cult2Role.id}>\n` +
-          `🎯 Attack: ${REGION_LABEL[direction]} from **${cult2.name}** (${STANCE_LABEL[stance2]})\n\n` +
-          `**Final HP Standings:**\n` +
+          `🎯 Attack: ${REGION_LABEL[direction]} of **${cult2.name}** (${STANCE_LABEL[stance2]})\n\n` +
+          `**Final HP:**\n` +
           `${cult1.name}: ${healthBar(finalHp1, maxHp1)} ${Math.round((finalHp1 / maxHp1) * 100)}%\n` +
           `${cult2.name}: ${healthBar(finalHp2, maxHp2)} ${Math.round((finalHp2 / maxHp2) * 100)}%`
         )
         .addFields(
           { name: `🏆 Winner`, value: `**${winnerCult.name}** <@&${winnerRole.id}>` },
-          { name: `🎁 Rewarded Members (${rewarded.length})`, value: rewardedMentions.slice(0, 1000) },
-          failed.length > 0 ? { name: '⚠️ Not Rewarded', value: `${failed.length} members could not receive the role (possibly left the server)` } : null,
+          { name: `🎁 Rewarded members (${rewarded.length})`, value: rewardedMentions.slice(0, 1000) },
+          failed.length > 0 ? { name: '⚠️ Not rewarded', value: `${failed.length} member(s) couldn't receive the role (may have left the server)` } : null,
         ).filter(Boolean)
         .setTimestamp()]
     });
