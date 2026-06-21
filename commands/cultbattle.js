@@ -220,7 +220,11 @@ module.exports = {
     });
 
     // Give reward role to every member of the winning cult
-    await guild.members.fetch({ force: false });
+    try {
+      await guild.members.fetch({ force: false });
+    } catch (err) {
+      console.error('Member fetch failed before role assignment:', err.message);
+    }
     const rewarded = [];
     const failed = [];
 
@@ -230,8 +234,11 @@ module.exports = {
         if (guildMember) {
           await guildMember.roles.add(rewardRole.id);
           rewarded.push(member.user_id);
+        } else {
+          failed.push(member.user_id);
         }
-      } catch {
+      } catch (err) {
+        console.error(`Failed to assign reward role to ${member.user_id}:`, err.message);
         failed.push(member.user_id);
       }
     }
