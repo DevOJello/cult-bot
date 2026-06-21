@@ -25,6 +25,7 @@ async function initDB() {
   await pool.query(`ALTER TABLE cults ADD COLUMN IF NOT EXISTS tax_rate INTEGER DEFAULT 100`);
   await pool.query(`ALTER TABLE cults ADD COLUMN IF NOT EXISTS war_stance TEXT DEFAULT 'balanced'`);
   await pool.query(`ALTER TABLE cults ADD COLUMN IF NOT EXISTS last_war_at TIMESTAMPTZ`);
+  await pool.query(`ALTER TABLE cults ADD COLUMN IF NOT EXISTS icon_url TEXT`);
   // One-time backfill: bump already-registered cults up to the new 150-spot
   // baseline, but never shrink a cult that's already expanded past it
   await pool.query(`UPDATE cults SET max_members = 150 WHERE max_members < 150`);
@@ -406,6 +407,7 @@ module.exports = {
               { name: '🛡️ Defensive', value: 'defensive' },
             )
         )
+        .addAttachmentOption(opt => opt.setName('icon').setDescription('New cult icon/pfp image, shown in cult battles (Leader only)').setRequired(false))
     )
 
     .addSubcommand(sub =>
@@ -633,10 +635,19 @@ module.exports = {
       const newTax = interaction.options.getInteger('tax');
       const newRole = interaction.options.getRole('role');
       const newStance = interaction.options.getString('stance');
-      const wantsToEdit = newDescription !== null || newTax !== null || newRole !== null || newStance !== null;
+      const newIconAttachment = interaction.options.getAttachment('icon');
+      const wantsToEdit = newDescription !== null || newTax !== null || newRole !== null || newStance !== null || newIconAttachment !== null;
 
       if (wantsToEdit && myRank !== 'leader') {
         return interaction.reply({ content: '⚠️ Co-Leaders can view settings but only the Leader can change them.', flags: 64 });
+      }
+
+      let newIconUrl = null;
+      if (newIconAttachment) {
+        if (!newIconAttachment.contentType?.startsWith('image/')) {
+          return interaction.reply({ content: '⚠️ The icon must be an image file (PNG, JPG, GIF, etc).', flags: 64 });
+        }
+        newIconUrl = newIconAttachment.url;
       }
 
       if (wantsToEdit) {
@@ -652,26 +663,28 @@ module.exports = {
             description = COALESCE($1, description),
             tax_rate = COALESCE($2, tax_rate),
             role_id = COALESCE($3, role_id),
-            war_stance = COALESCE($4, war_stance)
-           WHERE id = $5`,
-          [newDescription, newTax, newRole?.id || null, newStance, cult.id]
+            war_stance = COALESCE($4, war_stance),
+            icon_url = COALESCE($5, icon_url)
+           WHERE id = $6`,
+          [newDescription, newTax, newRole?.id || null, newStance, newIconUrl, cult.id]
         );
       }
 
       const updated = await getCultById(cult.id);
 
-      return interaction.reply({
-        embeds: [new EmbedBuilder()
-          .setTitle(`⚙️ ${updated.name} — Settings`)
-          .setColor(0x6C63FF)
-          .addFields(
-            { name: '📝 Description', value: updated.description || '*No description set*' },
-            { name: '💸 Daily Tax', value: `${updated.tax_rate} gold/member`, inline: true },
-            { name: '🎭 Role', value: `<@&${updated.role_id}>`, inline: true },
-            { name: '🛡️ Default War Stance', value: STANCE_LABEL[updated.war_stance] || updated.war_stance, inline: true },
-            { name: '👤 Your Access', value: myRank === 'leader' ? 'Full edit access' : 'View only', inline: true },
-          )]
-      });
+      const settingsEmbed = new EmbedBuilder()
+        .setTitle(`⚙️ ${updated.name} — Settings`)
+        .setColor(0x6C63FF)
+        .addFields(
+          { name: '📝 Description', value: updated.description || '*No description set*' },
+          { name: '💸 Daily Tax', value: `${updated.tax_rate} gold/member`, inline: true },
+          { name: '🎭 Role', value: `<@&${updated.role_id}>`, inline: true },
+          { name: '🛡️ Default War Stance', value: STANCE_LABEL[updated.war_stance] || updated.war_stance, inline: true },
+          { name: '👤 Your Access', value: myRank === 'leader' ? 'Full edit access' : 'View only', inline: true },
+        );
+      if (updated.icon_url) settingsEmbed.setThumbnail(updated.icon_url);
+
+      return interaction.reply({ embeds: [settingsEmbed] });
     }
 
     // ── DEPLOY ────────────────────────────────────────────────────────────────

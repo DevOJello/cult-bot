@@ -90,38 +90,6 @@ function roundRect(ctx, x, y, w, h, r) {
   ctx.closePath();
 }
 
-function drawTrophy(ctx, cx, topY) {
-  ctx.save();
-  ctx.fillStyle = '#ffd60a';
-  ctx.beginPath();
-  ctx.moveTo(cx - 18, topY);
-  ctx.quadraticCurveTo(cx, topY + 28, cx + 18, topY);
-  ctx.lineTo(cx + 14, topY);
-  ctx.quadraticCurveTo(cx, topY + 18, cx - 14, topY);
-  ctx.closePath();
-  ctx.fill();
-  ctx.fillRect(cx - 3, topY + 18, 6, 8);
-  ctx.fillRect(cx - 10, topY + 26, 20, 5);
-  ctx.restore();
-}
-
-function drawTombstone(ctx, cx, topY) {
-  ctx.save();
-  ctx.fillStyle = '#9ca3af';
-  ctx.beginPath();
-  ctx.moveTo(cx - 16, topY + 30);
-  ctx.lineTo(cx - 16, topY + 10);
-  ctx.arc(cx, topY + 10, 16, Math.PI, 0);
-  ctx.lineTo(cx + 16, topY + 30);
-  ctx.closePath();
-  ctx.fill();
-  ctx.fillStyle = '#374151';
-  ctx.font = 'bold 10px sans-serif';
-  ctx.textAlign = 'center';
-  ctx.fillText('RIP', cx, topY + 25);
-  ctx.restore();
-}
-
 async function renderCultBattleImage(sideA, sideB, aWins) {
   const width = 760, height = 340;
   const canvas = createCanvas(width, height);
@@ -180,10 +148,7 @@ async function renderCultBattleImage(sideA, sideB, aWins) {
 
     ctx.font = '14px sans-serif';
     ctx.fillStyle = 'rgba(255,255,255,0.8)';
-    ctx.fillText('Cult Leader', x + panelW / 2, avatarY + avatarSize + 55);
-
-    if (isWinner) drawTrophy(ctx, x + panelW / 2, avatarY - 25);
-    else drawTombstone(ctx, x + panelW / 2, avatarY - 30);
+    ctx.fillText(side.subtitle || 'Cult Leader', x + panelW / 2, avatarY + avatarSize + 55);
   }
 
   await drawSide(15, sideA, aWins);
@@ -401,21 +366,28 @@ module.exports = {
       resultFields.push({ name: '⚠️ Not rewarded', value: `${failed.length} member(s) couldn't receive the role (may have left the server, or the bot's role is positioned below the reward role)` });
     }
 
-    // Build the VS image using each cult's Leader as the "face" of their cult
+    // Build the VS image — prefer each cult's own icon (set via /cult settings
+    // icon) and fall back to the Leader's avatar if no icon has been set.
     let leader1User, leader2User;
-    try { leader1User = await client.users.fetch(cult1.leader_id); } catch (err) { console.error('Leader1 fetch failed:', err.message); }
-    try { leader2User = await client.users.fetch(cult2.leader_id); } catch (err) { console.error('Leader2 fetch failed:', err.message); }
+    if (!cult1.icon_url) {
+      try { leader1User = await client.users.fetch(cult1.leader_id); } catch (err) { console.error('Leader1 fetch failed:', err.message); }
+    }
+    if (!cult2.icon_url) {
+      try { leader2User = await client.users.fetch(cult2.leader_id); } catch (err) { console.error('Leader2 fetch failed:', err.message); }
+    }
 
     const fallbackAvatar = 'https://cdn.discordapp.com/embed/avatars/0.png';
     const sideA = {
       name: cult1.name,
-      avatarURL: leader1User ? leader1User.displayAvatarURL({ extension: 'png', size: 256 }) : fallbackAvatar,
+      avatarURL: cult1.icon_url || (leader1User ? leader1User.displayAvatarURL({ extension: 'png', size: 256 }) : fallbackAvatar),
       color: intToHex(cult1Role.color),
+      subtitle: cult1.icon_url ? 'Cult Icon' : 'Cult Leader',
     };
     const sideB = {
       name: cult2.name,
-      avatarURL: leader2User ? leader2User.displayAvatarURL({ extension: 'png', size: 256 }) : fallbackAvatar,
+      avatarURL: cult2.icon_url || (leader2User ? leader2User.displayAvatarURL({ extension: 'png', size: 256 }) : fallbackAvatar),
       color: intToHex(cult2Role.color),
+      subtitle: cult2.icon_url ? 'Cult Icon' : 'Cult Leader',
     };
 
     let attachment = null;
